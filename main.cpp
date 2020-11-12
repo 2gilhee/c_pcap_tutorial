@@ -56,7 +56,7 @@ bool print_ethernet(struct ether_header* eth){
 	printf("%04x\n\n", ether_type);
 
 	if(ether_type == ETHERTYPE_IP) {
-		is_ip = true;168.80.2) at 00:50:56:f0:de:7e [ether] on en
+		is_ip = true;
 	}
 
 	return is_ip;
