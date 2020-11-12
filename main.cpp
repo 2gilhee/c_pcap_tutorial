@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <typeinfo>
 #include <arpa/inet.h>
+#include <bitset>
 
 using namespace std;
 
@@ -55,31 +56,62 @@ bool print_ethernet(struct ether_header* eth){
 	printf("%04x\n\n", ether_type);
 
 	if(ether_type == ETHERTYPE_IP) {
-		is_ip = true;
+		is_ip = true;168.80.2) at 00:50:56:f0:de:7e [ether] on en
 	}
 
 	return is_ip;
 }
 
-void printIPAddress(uint32_t *addr) {
-	int sizeOfIP = 4;
+void print_fragment(unsigned short frag) {
+	// int rf = frag & IP_RF;
+	// int df = frag & IP_DF;
+	// int mf = frag & IP_MF;
+	// unsigned short off = frag & IP_OFFMASK;
 
-	for(int i=0; i<sizeOfIP;i++)
-	{
-					printf("%02x ",addr[i]);
-					if(i!=sizeOfIP-1)
-									printf(".");
+	bitset<16> temp = bitset<16>(frag);
+	// cout << bitset<16>(frag) <<endl;
+	// cout << temp <<endl;
+
+	cout << "IP_OFF_RF	: " << temp[15] << endl;
+	cout << "IP_OFF_DF	: " << temp[14] << endl;
+	cout << "IP_OFF_MF	: " << temp[13] << endl;
+	cout << "IP_OFF_SET	: ";
+	for(int i=12; i>=0; i--) {
+		if(i == 12 || i == 8 || i ==4)
+			cout << temp[i] << " ";
+		else
+			cout << temp[i];
 	}
-	printf("\n");
+	cout << endl;
+}
+
+void print_IP(struct ip* ip_header){
+	printf("-------IP HEADER-------\n");
+	printf("version		: 0x%x\n", ip_header->ip_v);
+	printf("Header Len	: %d\n", ip_header->ip_hl);
+	printf("Type of Service	: 0x%02x\n", ip_header->ip_tos);
+	printf("Length		: %d\n", ntohs(ip_header->ip_len));
+	printf("Ident		: 0x%04x\n", ntohs(ip_header->ip_id));
+	printf("Fragmentation	: 0x%04x\n", ntohs(ip_header->ip_off));
+	print_fragment(ntohs(ip_header->ip_off));
+	printf("TTL		: 0x%02x\n", ip_header->ip_ttl);
+	printf("Protocol	: 0x%02x\n", ip_header->ip_p);
+	printf("Check		: 0x%04x\n", ntohs(ip_header->ip_sum));
+	printf("Src Address	: %s\n", inet_ntoa(ip_header->ip_src));
+	//printf("%s\n", ip_header->saddr.str())
+	printf("Dst address	: %s\n\n", inet_ntoa(ip_header->ip_dst));
+	//printIPAddress(ip_header->daddr);
 }
 
 void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
 	static int count = 1;
 	struct ether_header* eth_header;
-	struct iphdr* ip_header;
+	struct ip* ip_header;
 	bool is_ip;
 	int chcnt = 0;
 	int length = pkthdr->len;
+
+	printf("-------PACKET START-------\n");
 
 	// GET Ethernet header & GET protocol
 	eth_header = (struct ether_header*)packet;
@@ -89,26 +121,14 @@ void callback(u_char *useless, const struct pcap_pkthdr *pkthdr, const u_char *p
 	packet += sizeof(struct ether_header);
 
 	//GET IP header
-	ip_header = (struct iphdr*) packet;
-	printf("-------IP HEADER-------\n");
-	printf("version  : 0x%x\n", ip_header->version);
-	printf("Header Len  : 0x%x\n", ip_header->ihl);
-	printf("Type of Service  : 0x%02x\n", ip_header->tos);
-	printf("Ident       : 0x%04x\n", ip_header->id);
-	printf("Fragmentation  : 0x%04x\n", ip_header->frag_off);
-	printf("TTL         : 0x%04x\n", ip_header->ttl);
-	printf("Protocol  : 0x%02x\n", ip_header->protocol);
-	printf("Check  : 0x%04x\n", ip_header->check);
-	printf("Src Address : %04x\n", ip_header->saddr);
-	//printf("%s\n", ip_header->saddr.str())
-	printf("Dst Address : %04x\n\n", ip_header->daddr);
-	//printIPAddress(ip_header->daddr);
+	ip_header = (struct ip*) packet;
+	print_IP(ip_header);
 }
 
 
 int main(int argc, char* argv[]){
 	char* device = argv[1];
-	cout << device << endl;
+	// cout << device << endl;
 	char errbuf[PCAP_ERRBUF_SIZE];
 
 	pcap_t* pcd = pcap_open_live(device, BUFSIZ, 1, 200, errbuf);
@@ -118,46 +138,3 @@ int main(int argc, char* argv[]){
 	int value_of_next_ex;
 	pcap_loop(pcd, 10, callback, NULL);
 }
-
-//
-// int main(int argc, char* argv[])
-// {
-//
-//     char* device = "ens33";
-//     cout<<device<<endl;
-//     char errbuf[PCAP_ERRBUF_SIZE];
-//     pcap_t* pcd =  pcap_open_live(device, BUFSIZ, 1, 200, errbuf);
-//
-//     struct pcap_pkthdr *hdr;
-//     const u_char* pkt_data;
-//
-//     int value_of_next_ex;
-//
-//       while(true)
-//       {
-//           value_of_next_ex = pcap_next_ex(pcd,&hdr,&pkt_data);
-//
-//           switch (value_of_next_ex)
-//           {
-//               case 1:
-//                   //do something with pkt_data and hdr
-//
-//                   printByHexData((uint8_t*)pkt_data, hdr->len);
-//                   break;
-//               case 0:
-//                   cout<<"need a sec.. to packet capture"<<endl;
-//                   continue;
-//               case -1:
-//                   perror("pcap_next_ex function has an error!!!");
-//                   exit(1);
-//               case -2:
-//                   cout<<"the packet have reached EOF!!"<<endl;
-//                   exit(0);
-//               default:
-//                   break;
-//           }
-
-//
-//       }
-//     return 0;
-// }
